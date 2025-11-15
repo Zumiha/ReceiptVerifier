@@ -1,3 +1,8 @@
+# tokens and users
+api_requests.json
+authorized_users.json
+config.json
+
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[codz]
