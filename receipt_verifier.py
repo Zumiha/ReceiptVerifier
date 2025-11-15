@@ -1,3 +1,4 @@
+import os
 import requests
 import json
 import csv
@@ -15,16 +16,6 @@ logging.basicConfig(
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
 )
 logger = logging.getLogger(__name__)
-
-@dataclass
-class ReqParams:
-    fn: str
-    fd: str
-    fp: str
-    t: str
-    n: str
-    s: str
-
 
 @dataclass
 class ReceiptItem:
@@ -180,15 +171,18 @@ class Receipt:
 
         return result
 
-    def to_csv(self, filename: Optional[str] = None) -> Optional[str]:
+    def to_csv(self, filename: Optional[str] = None, receipts_dir: str = "receipts") -> Optional[str]:
         """Save receipt to CSV file"""
         if not self.is_valid:
             return None
+        
+        # Create receipts directory if it doesn't exist
+        Path(receipts_dir).mkdir(exist_ok=True)
 
         # Generate filename if not provided
         if filename is None:
-            timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
-            filename = f"receipt_{timestamp}_{self.fiscal_drive_number}_{self.fiscal_document_number}.csv"
+            filename = f"{self.date}_{self.time.replace(':', '-')}_{self.fiscal_drive_number}_{self.fiscal_document_number}_{self.fiscal_sign}.csv"
+            filename = os.path.join(receipts_dir, filename)
 
         try:
             with open(filename, 'w', newline='', encoding='utf-8') as f:
@@ -274,9 +268,9 @@ class RequestBuilder:
     """
 
     @staticmethod
-    def from_manual_params(fn: str, fd: str, fp: str, t: str, n: str, s: str) -> RequestParams:
+    def from_manual_params(data: Dict[str, str]) -> Dict[str, str]:
         """Create request from manual fiscal parameters"""
-        return RequestParams(fn=fn, fd=fd, fp=fp, t=t, n=n, s=s)
+        return data
 
     @staticmethod
     def from_qr_string(qr_string: str) -> Dict[str, str]:
@@ -532,8 +526,8 @@ def from_qr_string(_qr_string: str) -> Receipt:
     request = RequestBuilder.from_qr_string(_qr_string)
     return verifier.verify_receipt(request)
 
-def from_params(_pars: ReqParams) -> Receipt:
-    request = RequestBuilder.from_manual_params(_pars.fn, _pars.fn, _pars.fp, _pars.t, _pars.n, _pars.s)
+def from_params(data: Dict[str, str]) -> Receipt:
+    request = RequestBuilder.from_manual_params(data)
     return verifier.verify_receipt(request)
 
 def from_qr_url(_url: str) -> Receipt:
@@ -551,24 +545,26 @@ def from_qr_img(_file_path: str) -> Receipt:
 
 # Example usage
 if __name__ == "__main__":
-    TOKEN = "API_TOKEN"
+    TOKEN = " "
     verifier = ReceiptVerifier(TOKEN, max_retries=3, cache_size=100)
 
-    # Example 1: Verify from QR string (most common)
-    qr_string = "t=t&s=s&fn=fn&i=fd&fp=fp&n=n"
-    receipt = from_qr_string(qr_string)
+    # # Example 1: Verify from QR string (most common)
+    # qr_string = "t=...&s=...&fn=...&i=...&fp=...&n=1"
+    # receipt = from_qr_string(qr_string)
 
 
-    # # Example 2: Verify from manual parameters
-    # params = ReqParams(
-    #     "fn",
-    #     "fd",
-    #     "fp",
-    #     "t",
-    #     "n",
-    #     "s"
-    # )
-    # receipt = from_params(params)
+    # Example 2: Verify from manual parameters as JSON
+    params = {
+        'fn': '...',
+        'fd': '...',
+        'fp': '...',
+        't': '...T...',
+        'n': '1',
+        's': '1000.00',
+        'qr': '0'
+    }
+
+    receipt = from_params(params)
 
 
     # # Example 3: Verify from QR image URL
